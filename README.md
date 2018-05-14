@@ -25,5 +25,16 @@ Data:
 
 ## Citation
 ```
-
+@InProceedings{Writ_edit,
+  author = 	"Wang, Qingyun
+            and Zhou, Zhihao
+            and Huang, Lifu
+            and Whitehead, Spencer
+            and Zhang, Boliang Zhang
+            and Ji, Heng
+            and Knight, Kevin",
+  title = 	"Paper Abstract Writing through Editing Mechanism",
+  booktitle = 	"Proceedings of the 56th Annual Meeting of the Association for Computational Linguistics",
+  year = 	"2018"
+}
 ```
