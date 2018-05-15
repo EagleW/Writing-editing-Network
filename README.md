@@ -26,11 +26,11 @@ Data:
 ## Citation
 ```
 @InProceedings{Writ_edit,
-  author = 	"Wang, Qingyun
+  author ="Wang, Qingyun
             and Zhou, Zhihao
             and Huang, Lifu
             and Whitehead, Spencer
-            and Zhang, Boliang Zhang
+            and Zhang, Boliang
             and Ji, Heng
             and Knight, Kevin",
   title = 	"Paper Abstract Writing through Editing Mechanism",
