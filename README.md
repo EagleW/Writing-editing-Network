@@ -1,6 +1,6 @@
 # Writing-editing Network: Paper Abstract Writing through Editing Mechanism
 
-[Paper Abstract Writing through Editing Mechanism](http://nlp.cs.rpi.edu/paper/papergeneration.pdf)
+[Paper Abstract Writing through Editing Mechanism](https://arxiv.org/pdf/1805.06064.pdf)
 
 Accpeted by ACL 2018
 
