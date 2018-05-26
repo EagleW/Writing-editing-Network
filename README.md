@@ -12,16 +12,35 @@ Table of Contents
   
 ## Requirements
 
-Environment:
+#### Environment:
 
 - [Pytorch 0.4](http://pytorch.org/)
 -  Python 3.6
 
-Data: 
+#### Data: 
 
 - [ACL_titles_abstracts_dataset](https://github.com/EagleW/ACL_titles_abstracts_dataset)
 
 ## Quickstart
+
+#### Preprocessing:
+Put the acl_titles_and_abstracts.txt under the Writing-editing network folder. Randomly split the data into train, dev and test by runing split_data.py. 
+
+#### Training
+Hyperparameter can be adjust in the Config class of main.py.
+```
+python main.py --cuda --mode 0
+```
+
+#### Validation
+Compute score:
+```
+python main.py --cuda --mode 3
+```
+Predict sentence:
+```
+python main.py --cuda --mode 1
+```
 
 ## Citation
 ```
