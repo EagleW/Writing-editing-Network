@@ -142,18 +142,18 @@ class headline2abstractdataset(Dataset):
         self.data = corpus
 
     def _read_corpus(self, path):
-        with open(path, "r") as f:
-            lines = f.readlines()
-        f.close()
         abstracts = []
         headlines = []
         i = 0
-        for line in lines:
-            if i % 3 == 0:
-                headlines.append(line)
-            elif i % 3 == 1:
-                abstracts.append(line)
-            i += 1
+        with open(path, encoding="ascii") as f:
+            for line in f:
+                if line == "\n":
+                    continue
+                if i % 2 == 0:
+                    headlines.append(line)
+                else:
+                    abstracts.append(line)
+                i += 1
         corpus = []
         for i in range(len(abstracts)):
             if len(headlines[i]) > 0 and len(abstracts[i]) > 0:

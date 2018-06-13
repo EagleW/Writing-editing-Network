@@ -1,5 +1,5 @@
 from random import shuffle
-file1=open("acl_titles_and_abstracts.txt", 'r')
+file1=open("ARXIV-CORPUS-COMPLETE-50k.txt", 'r')
 lines=file1.readlines()
 file1.close()
 abs_t = []
@@ -7,9 +7,9 @@ abstracts = []
 titles = []
 i = 0
 for line in lines:
-    if i % 3 == 0:
+    if i % 2 == 0:
         titles.append(line)
-    elif i % 3 == 1:
+    else:
         abstracts.append(line)
     i += 1
 for i in range(len(abstracts)):
