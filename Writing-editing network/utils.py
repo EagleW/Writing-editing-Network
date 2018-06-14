@@ -145,14 +145,14 @@ class headline2abstractdataset(Dataset):
         abstracts = []
         headlines = []
         i = 0
-        with open(path, encoding="ascii") as f:
+        with open(path, encoding="utf-8") as f:
             for line in f:
                 if line == "\n":
                     continue
                 if i % 2 == 0:
-                    headlines.append(line)
+                    headlines.append(line.strip())
                 else:
-                    abstracts.append(line)
+                    abstracts.append(line.strip())
                 i += 1
         corpus = []
         for i in range(len(abstracts)):

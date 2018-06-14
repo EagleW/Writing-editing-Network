@@ -21,7 +21,7 @@ class Config(object):
     nlayers = 1
     lr = 0.001
     epochs = 10
-    batch_size = 240
+    batch_size = 20
     dropout = 0
     bidirectional = True
     relative_data_path = '/data/train.dat'
@@ -30,6 +30,7 @@ class Config(object):
     max_grad_norm = 10
     min_freq = 5
     num_exams = 3
+    log_interval = 1000
 
 
 class ConfigTest(object):
@@ -88,6 +89,8 @@ decoder = DecoderRNNFB(vocab_size, embedding, abstracts.abs_len, config.emsize, 
                      n_layers=config.nlayers, rnn_cell=config.cell, bidirectional=config.bidirectional,
                      input_dropout_p=config.dropout, dropout_p=config.dropout)
 model = FbSeq2seq(encoder_title, encoder, decoder)
+total_params = sum(x.size()[0] * x.size()[1] if len(x.size()) > 1 else x.size()[0] for x in model.parameters())
+print('Model total parameters:', total_params, flush=True)
 
 criterion = nn.CrossEntropyLoss(ignore_index=0)
 if args.cuda:
@@ -144,6 +147,10 @@ def train_epoches(dataset, model, n_epochs, teacher_forcing_ratio):
     for epoch in range(1, n_epochs + 1):
         epoch_examples_total = 0
         epoch_loss_list = [0] * config.num_exams
+        total_examples = 0
+        start = time.time()
+        epoch_start_time = start
+        total_loss = 0
         for batch_idx, (source, target, input_lengths) in enumerate(train_loader):
             input_variables = source
             target_variables = target
@@ -156,12 +163,25 @@ def train_epoches(dataset, model, n_epochs, teacher_forcing_ratio):
             for i in range(config.num_exams):
                 epoch_loss_list[i] += loss_list[i] * num_examples
 
+            # Add to local variable for logging
+            total_loss += loss_list[-1] * num_examples
+            total_examples += num_examples
+            if total_examples % config.log_interval == 0:
+                cur_loss = total_loss / float(config.log_interval)
+                end_time = time.time()
+                elapsed = end_time - start
+                start = end_time
+                total_loss = 0
+                print('| epoch {:3d} | {:5d}/{:5d} examples | lr {:02.4f} | ms/batch {:5.2f} | '
+                      'loss {:5.2f}'.format(
+                    epoch, total_examples, len(train_loader.dataset), optimizer.param_groups[0]['lr'],
+                                           elapsed * 1000 / config.log_interval, cur_loss),
+                    flush=True)
+
         for i in range(config.num_exams):
             epoch_loss_list[i] /= float(epoch_examples_total)
 
-        log_msg = "Finished epoch %d with losses:" % epoch
-        print(log_msg)
-        pprint(epoch_loss_list)
+        print('| end of epoch {:3d} | time: {:5.2f}s'.format(epoch, (time.time() - epoch_start_time)), flush=True)
         if prev_epoch_loss_list[:-1] < epoch_loss_list[:-1]:
             break
         else:
