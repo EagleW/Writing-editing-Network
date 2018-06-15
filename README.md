@@ -15,7 +15,7 @@ Table of Contents
 #### Environment:
 
 - [Pytorch 0.4](http://pytorch.org/)
--  Python 3.6
+-  Python 3.6 **CAUTION!! Model will not be saved and loaded properly under Python 3.5**
 
 #### Data: 
 
@@ -37,7 +37,7 @@ Compute score:
 ```
 python main.py --cuda --mode 3
 ```
-Predict sentence:
+Predict abstract:
 ```
 python main.py --cuda --mode 1
 ```
