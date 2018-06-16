@@ -31,24 +31,7 @@ class Config(object):
     min_freq = 5
     num_exams = 3
     log_interval = 1000
-
-
-class ConfigTest(object):
-    cell = "GRU"
-    emsize = 3
-    nlayers = 1
-    lr = 1
-    epochs = 3
-    batch_size = 2
-    dropout = 0
-    bidirectional = True
-    relative_data_path = '/data/haha.dat'
-    relative_dev_path = '/data/haha.dat'
-    relative_gen_path = '/data/fake%d.dat'
-    max_grad_norm = 1
-    min_freq = 0
-    num_exams = 3
-
+    predict_right_after = 3
 
 cudnn.benchmark = True
 parser = argparse.ArgumentParser(description='seq2seq model')
@@ -188,6 +171,27 @@ def train_epoches(dataset, model, n_epochs, teacher_forcing_ratio):
             prev_epoch_loss_list = epoch_loss_list[:]
 
 
+def predict(load=False, keep_going=False):
+    # predict sentence
+    if load:
+        model.load_state_dict(torch.load(args.save))
+        print("model restored")
+    predictor = Predictor(model, abstracts.vectorizer)
+    count = 0
+    while True:
+        seq_str = input("Type in a source sequence:\n")
+        seq = seq_str.strip().split(' ')
+        num_exams = int(input("Type the number of drafts:\n"))
+        print("\nresult:")
+        outputs = predictor.predict(seq, num_exams)
+        for i in range(num_exams):
+            print(i)
+            print(outputs[i])
+        print('-' * 120)
+        count += 1
+        if not keep_going and count > config.predict_right_after:
+            break
+
 if __name__ == "__main__":
     if args.mode == 0:
         # train
@@ -199,21 +203,9 @@ if __name__ == "__main__":
             print('Exiting from training early')
         torch.save(model.state_dict(), args.save)
         print("model saved")
+        predict()
     elif args.mode == 1:
-        # predict sentence
-        model.load_state_dict(torch.load(args.save))
-        print("model restored")
-        predictor = Predictor(model, abstracts.vectorizer)
-        while True:
-            seq_str = input("Type in a source sequence:\n")
-            seq = seq_str.strip().split(' ')
-            num_exams = int(input("Type the number of drafts:\n"))
-            print("\nresult:")
-            outputs = predictor.predict(seq, num_exams)
-            for i in range(num_exams):
-                print(i)
-                print(outputs[i])
-            print('-'*120)
+        predict(load=True, keep_going=True)
     elif args.mode == 2:
         num_exams = 3
         # predict file
