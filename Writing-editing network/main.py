@@ -32,6 +32,7 @@ class Config(object):
     num_exams = 3
     log_interval = 1000
     predict_right_after = 3
+    patience = 5
 
 cudnn.benchmark = True
 parser = argparse.ArgumentParser(description='seq2seq model')
@@ -57,8 +58,12 @@ config = Config()
 #config = ConfigTest()
 
 cwd = os.getcwd()
-data_path = cwd + config.relative_data_path
 vectorizer = Vectorizer(min_frequency=config.min_freq)
+
+validation_data_path = cwd + config.relative_dev_path
+validation_abstracts = headline2abstractdataset(validation_data_path, vectorizer, args.cuda, max_len=1000)
+
+data_path = cwd + config.relative_data_path
 abstracts = headline2abstractdataset(data_path, vectorizer, args.cuda, max_len=1000)
 print("number of training examples: %d" % len(abstracts))
 
@@ -114,22 +119,39 @@ def train_batch(input_variable, input_lengths, target_variable, model,
         decoder_outputs_reshaped = decoder_outputs.view(-1, vocab_size)
         lossi = criterion(decoder_outputs_reshaped, target_variable_reshaped)
         loss_list.append(lossi.item())
-        model.zero_grad()
-        lossi.backward(retain_graph=True)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), config.max_grad_norm)
-        optimizer.step()
+        if model.training:
+            model.zero_grad()
+            lossi.backward(retain_graph=True)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), config.max_grad_norm)
+            optimizer.step()
         prev_generated_seq = torch.squeeze(torch.topk(decoder_outputs, 1, dim=2)[1]).view(-1, decoder_outputs.size(1))
         prev_generated_seq = _mask(prev_generated_seq)
     return loss_list
 
+def evaluate(validation_dataset, model, teacher_forcing_ratio):
+    validation_loader = DataLoader(validation_dataset, config.batch_size)
+    model.eval()
+    epoch_loss_list = [0] * config.num_exams
+    for batch_idx, (source, target, input_lengths) in enumerate(validation_loader):
+        input_variables = source
+        target_variables = target
+        # train model
+        loss_list = train_batch(input_variables, input_lengths.tolist(),
+                                target_variables, model, teacher_forcing_ratio)
+        num_examples = len(source)
+        for i in range(config.num_exams):
+            epoch_loss_list[i] += loss_list[i] * num_examples
+    for i in range(config.num_exams):
+        epoch_loss_list[i] /= float(len(validation_loader.dataset))
+    return epoch_loss_list
 
 def train_epoches(dataset, model, n_epochs, teacher_forcing_ratio):
     train_loader = DataLoader(dataset, config.batch_size)
-    model.train(True)
     prev_epoch_loss_list = [100] * config.num_exams
+    patience = 0
     for epoch in range(1, n_epochs + 1):
+        model.train(True)
         epoch_examples_total = 0
-        epoch_loss_list = [0] * config.num_exams
         total_examples = 0
         start = time.time()
         epoch_start_time = start
@@ -143,8 +165,6 @@ def train_epoches(dataset, model, n_epochs, teacher_forcing_ratio):
             # Record average loss
             num_examples = len(source)
             epoch_examples_total += num_examples
-            for i in range(config.num_exams):
-                epoch_loss_list[i] += loss_list[i] * num_examples
 
             # Add to local variable for logging
             total_loss += loss_list[-1] * num_examples
@@ -161,14 +181,18 @@ def train_epoches(dataset, model, n_epochs, teacher_forcing_ratio):
                                            elapsed * 1000 / config.log_interval, cur_loss),
                     flush=True)
 
-        for i in range(config.num_exams):
-            epoch_loss_list[i] /= float(epoch_examples_total)
-
-        print('| end of epoch {:3d} | time: {:5.2f}s'.format(epoch, (time.time() - epoch_start_time)), flush=True)
-        if prev_epoch_loss_list[:-1] < epoch_loss_list[:-1]:
-            break
+        validation_loss = evaluate(validation_abstracts, model, teacher_forcing_ratio)
+        print('| end of epoch {:3d} | valid loss {:5.2f} | time: {:5.2f}s'.format(epoch, validation_loss[-1],
+                                                                                   (time.time() - epoch_start_time)),
+              flush=True)
+        if prev_epoch_loss_list[:-1] < validation_loss[:-1]:
+            patience += 1
+            if patience == config.patience:
+                print("Breaking off now. Performance has not improved on validation set since the last",config.patience,"epochs")
+                break
         else:
-            prev_epoch_loss_list = epoch_loss_list[:]
+            patience = 0
+            prev_epoch_loss_list = validation_loss[:]
 
 
 def predict(load=False, keep_going=False):
