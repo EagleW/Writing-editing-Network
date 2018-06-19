@@ -10,10 +10,12 @@ from seq2seq.fb_seq2seq import FbSeq2seq
 from seq2seq.EncoderRNN import EncoderRNN
 from seq2seq.DecoderRNNFB import DecoderRNNFB
 from predictor import Predictor
+from tensorboardX import SummaryWriter
 from pprint import pprint
 sys.path.insert(0,'..')
 from eval import Evaluate
 
+writer = SummaryWriter("runs/exp1", comment="lr")
 
 class Config(object):
     cell = "GRU"
@@ -156,6 +158,7 @@ def train_epoches(dataset, model, n_epochs, teacher_forcing_ratio):
         start = time.time()
         epoch_start_time = start
         total_loss = 0
+        training_loss_list = [0] * config.num_exams
         for batch_idx, (source, target, input_lengths) in enumerate(train_loader):
             input_variables = source
             target_variables = target
@@ -165,6 +168,8 @@ def train_epoches(dataset, model, n_epochs, teacher_forcing_ratio):
             # Record average loss
             num_examples = len(source)
             epoch_examples_total += num_examples
+            for i in range(config.num_exams):
+                training_loss_list[i] += loss_list[i] * num_examples
 
             # Add to local variable for logging
             total_loss += loss_list[-1] * num_examples
@@ -182,6 +187,12 @@ def train_epoches(dataset, model, n_epochs, teacher_forcing_ratio):
                     flush=True)
 
         validation_loss = evaluate(validation_abstracts, model, teacher_forcing_ratio)
+
+        for i in range(config.num_exams):
+            training_loss_list[i] /= float(epoch_examples_total)
+            writer.add_scalar('data/train_loss_abstract_'+str(i), training_loss_list[i], epoch)
+            writer.add_scalar('data/validation_loss_abstract_' + str(i), validation_loss[i], epoch)
+
         print('| end of epoch {:3d} | valid loss {:5.2f} | time: {:5.2f}s'.format(epoch, validation_loss[-1],
                                                                                    (time.time() - epoch_start_time)),
               flush=True)
