@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 import numpy as np
 from torch.backends import cudnn
-from utils import Vectorizer, headline2abstractdataset
+from utils import Vectorizer, headline2abstractdataset, load_embeddings
 from seq2seq.fb_seq2seq import FbSeq2seq
 from seq2seq.EncoderRNN import EncoderRNN
 from seq2seq.DecoderRNNFB import DecoderRNNFB
@@ -29,6 +29,7 @@ class Config(object):
     relative_data_path = '/data/train.dat'
     relative_dev_path = '/data/dev.dat'
     relative_gen_path = '/data/fake%d.dat'
+    pretrained = ''
     max_grad_norm = 10
     min_freq = 5
     num_exams = 3
@@ -71,6 +72,10 @@ print("number of training examples: %d" % len(abstracts))
 
 vocab_size = abstracts.vectorizer.vocabulary_size
 embedding = nn.Embedding(vocab_size, config.emsize, padding_idx=0)
+
+if args.pretrained:
+    embedding = load_embeddings(embedding, abstracts.vectorizer.word2idx, config.pretrained, config.emsize)
+
 encoder_title = EncoderRNN(vocab_size, embedding, abstracts.head_len, config.emsize, input_dropout_p=config.dropout,
                      n_layers=config.nlayers, bidirectional=config.bidirectional, rnn_cell=config.cell)
 encoder = EncoderRNN(vocab_size, embedding, abstracts.abs_len, config.emsize, input_dropout_p=config.dropout, variable_lengths = False,

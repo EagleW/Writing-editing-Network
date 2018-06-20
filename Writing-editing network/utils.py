@@ -2,23 +2,31 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from collections import Counter
+from gensim.models import KeyedVectors
 import re
 
-#provide embeddings for text
-def load_embeddings(path, word2idx, embedding_dim=256):
-    embeddings = np.zeros((len(word2idx), embedding_dim))
-    embd = []
-    with open(path, "r") as f:
-        lines = f.readlines()
-    for line in lines[1:]:
-        values = line.strip().split(' ')
-        word = values[0]
-        index = word2idx.get(word)
-        if index:
-            vector = np.array(values[1:], dtype='float32')
-            embeddings[index] = vector
-    #embeddings[1] = np.zeros(embedding_dim)
-    return torch.from_numpy(embeddings).float()
+#provide pretrained embeddings for text
+def load_embeddings(pytorch_embedding, word2idx, filename, embedding_size):
+    print("Copying pretrained word embeddings from ", filename, flush=True)
+    en_model = KeyedVectors.load_word2vec_format(filename)
+    """ Fetching all of the words in the vocabulary. """
+    pretrained_words = set()
+    for word in en_model.vocab:
+        pretrained_words.add(word)
+
+    arr = [0] * len(word2idx)
+    for word in word2idx:
+        index = word2idx[word]
+        if word in pretrained_words:
+            arr[index] = en_model[word]
+        else:
+            arr[index] = np.random.uniform(-1.0, 1.0, embedding_size)
+
+    """ Creating a numpy dictionary for the index -> embedding mapping """
+    arr = np.array(arr)
+    """ Add the word embeddings to the empty PyTorch Embedding object """
+    pytorch_embedding.weight.data.copy_(torch.from_numpy(arr))
+    return pytorch_embedding
 
 #Transforms a Corpus into lists of word indices.
 class Vectorizer:
