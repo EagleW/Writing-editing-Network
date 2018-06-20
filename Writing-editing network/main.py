@@ -1,4 +1,4 @@
-import time, argparse, math, os, sys, pickle
+import time, argparse, math, os, sys, pickle, copy
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -151,6 +151,7 @@ def train_epoches(dataset, model, n_epochs, teacher_forcing_ratio):
     train_loader = DataLoader(dataset, config.batch_size)
     prev_epoch_loss_list = [100] * config.num_exams
     patience = 0
+    best_model = None
     for epoch in range(1, n_epochs + 1):
         model.train(True)
         epoch_examples_total = 0
@@ -202,9 +203,11 @@ def train_epoches(dataset, model, n_epochs, teacher_forcing_ratio):
                 print("Breaking off now. Performance has not improved on validation set since the last",config.patience,"epochs")
                 break
         else:
+            print("Saved best model till now!")
+            best_model = copy.deepcopy(model)
             patience = 0
             prev_epoch_loss_list = validation_loss[:]
-
+    return best_model
 
 def predict(load=False, keep_going=False):
     # predict sentence
@@ -232,7 +235,7 @@ if __name__ == "__main__":
         # train
         try:
             print("start training...")
-            train_epoches(abstracts, model, config.epochs, teacher_forcing_ratio=1)
+            model = train_epoches(abstracts, model, config.epochs, teacher_forcing_ratio=1)
         except KeyboardInterrupt:
             print('-' * 89)
             print('Exiting from training early')
@@ -308,7 +311,7 @@ if __name__ == "__main__":
         # train
         try:
             print("Resume training...")
-            train_epoches(abstracts, model, config.epochs, teacher_forcing_ratio=1)
+            model = train_epoches(abstracts, model, config.epochs, teacher_forcing_ratio=1)
         except KeyboardInterrupt:
             print('-' * 89)
             print('Exiting from training early')
