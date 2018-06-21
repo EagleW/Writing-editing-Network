@@ -9,6 +9,7 @@ from utils import Vectorizer, headline2abstractdataset, load_embeddings
 from seq2seq.fb_seq2seq import FbSeq2seq
 from seq2seq.EncoderRNN import EncoderRNN
 from seq2seq.DecoderRNNFB import DecoderRNNFB
+from seq2seq.ContextEncoder import ContextEncoder
 from predictor import Predictor
 from tensorboardX import SummaryWriter
 from pprint import pprint
@@ -20,6 +21,7 @@ writer = SummaryWriter("runs/exp1", comment="lr")
 class Config(object):
     cell = "GRU"
     emsize = 512
+    context_dim = 128
     nlayers = 1
     lr = 0.001
     epochs = 10
@@ -77,6 +79,8 @@ embedding = nn.Embedding(vocab_size, config.emsize, padding_idx=0)
 if config.pretrained:
     embedding = load_embeddings(embedding, abstracts.vectorizer.word2idx, config.pretrained, config.emsize)
 
+context_encoder = ContextEncoder(config.context_dim, len(abstracts.context_vectorizer), config.emsize)
+
 encoder_title = EncoderRNN(vocab_size, embedding, abstracts.head_len, config.emsize, input_dropout_p=config.dropout,
                      n_layers=config.nlayers, bidirectional=config.bidirectional, rnn_cell=config.cell)
 encoder = EncoderRNN(vocab_size, embedding, abstracts.abs_len, config.emsize, input_dropout_p=config.dropout, variable_lengths = False,
@@ -84,7 +88,7 @@ encoder = EncoderRNN(vocab_size, embedding, abstracts.abs_len, config.emsize, in
 decoder = DecoderRNNFB(vocab_size, embedding, abstracts.abs_len, config.emsize, sos_id=2, eos_id=1,
                      n_layers=config.nlayers, rnn_cell=config.cell, bidirectional=config.bidirectional,
                      input_dropout_p=config.dropout, dropout_p=config.dropout)
-model = FbSeq2seq(encoder_title, encoder, decoder)
+model = FbSeq2seq(encoder_title, encoder, context_encoder, decoder)
 total_params = sum(x.size()[0] * x.size()[1] if len(x.size()) > 1 else x.size()[0] for x in model.parameters())
 print('Model total parameters:', total_params, flush=True)
 
@@ -116,7 +120,7 @@ def _mask(prev_generated_seq):
         mask = mask.cuda()
     return prev_generated_seq.data.masked_fill_(mask, 0)
 
-def train_batch(input_variable, input_lengths, target_variable, model,
+def train_batch(input_variable, input_lengths, target_variable, topics, model,
                 teacher_forcing_ratio):
     loss_list = []
     # Forward propagation
@@ -126,7 +130,7 @@ def train_batch(input_variable, input_lengths, target_variable, model,
     for i in range(config.num_exams):
         decoder_outputs, _, other = \
             model(input_variable, prev_generated_seq, input_lengths,
-                   target_variable, teacher_forcing_ratio)
+                   target_variable, teacher_forcing_ratio, topics)
 
         decoder_outputs_reshaped = decoder_outputs.view(-1, vocab_size)
         lossi = criterion(decoder_outputs_reshaped, target_variable_reshaped)
@@ -170,12 +174,12 @@ def train_epoches(dataset, model, n_epochs, teacher_forcing_ratio):
         epoch_start_time = start
         total_loss = 0
         training_loss_list = [0] * config.num_exams
-        for batch_idx, (source, target, input_lengths) in enumerate(train_loader):
+        for batch_idx, (source, target, input_lengths, topics) in enumerate(train_loader):
             input_variables = source
             target_variables = target
             # train model
             loss_list = train_batch(input_variables, input_lengths,
-                               target_variables, model, teacher_forcing_ratio)
+                               target_variables, topics, model, teacher_forcing_ratio)
             # Record average loss
             num_examples = len(source)
             epoch_examples_total += num_examples

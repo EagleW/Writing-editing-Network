@@ -1,17 +1,15 @@
 from random import shuffle
+import json
 file1=open("ARXIV-CORPUS-COMPLETE-50k.txt", 'r')
 lines=file1.readlines()
 file1.close()
 abs_t = []
 abstracts = []
 titles = []
-i = 0
 for line in lines:
-    if i % 2 == 0:
-        titles.append(line)
-    else:
-        abstracts.append(line)
-    i += 1
+    j = json.loads(line)
+    titles.append((j["title"], j["topics"]))
+    abstracts.append(j["abstract"])
 for i in range(len(abstracts)):
     if len(titles[i]) > 0 and len(abstracts[i]) > 0:
         h_a_pair = (titles[i], abstracts[i])

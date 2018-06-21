@@ -4,6 +4,7 @@ from torch.utils.data import Dataset
 from collections import Counter
 from gensim.models import KeyedVectors
 import re
+import json
 
 #provide pretrained embeddings for text
 def load_embeddings(pytorch_embedding, word2idx, filename, embedding_size):
@@ -116,8 +117,9 @@ class headline2abstractdataset(Dataset):
         self.head_len = 0
         self.abs_len = 0
         self.max_len = max_len
-        self.corpus = self._read_corpus(path)
+        self.corpus, self.topics_corpus = self._read_corpus(path)
         self.vectorizer = vectorizer
+        self.context_vectorizer = {}
         self.data = self._vectorize_corpus()
         self._initalcorpus()
         self.USE_CUDA = USE_CUDA
@@ -129,9 +131,10 @@ class headline2abstractdataset(Dataset):
 
     def _initalcorpus(self):
         old = []
-        for i in self.data:
+        for i, j in zip(self.data, self.topics_corpus):
             source = i[0]
             target = i[1]
+            vectorized_topics = j
             if len(source) > self.head_len:
                 self.head_len = len(source)
             if len(target) <= self.max_len:
@@ -141,36 +144,45 @@ class headline2abstractdataset(Dataset):
                 target = target[:self.max_len-1]
                 target.append(1)#word2idx['<EOS>'] = 1
                 self.abs_len = len(target)
-            old.append((source[1:-1], target))
+            old.append((source[1:-1], target, vectorized_topics))
         old.sort(key = lambda x: len(x[0]), reverse = True)
         corpus = []
-        for source, target in old:
-            team = [len(source), len(target), self.pad_sentence_vector(source, self.head_len), self.pad_sentence_vector(target, self.abs_len)]
+        for source, target, vectorized_topics in old:
+            team = [len(source), len(target), self.pad_sentence_vector(source, self.head_len), self.pad_sentence_vector(target, self.abs_len), vectorized_topics]
             corpus.append(team)
         self.data = corpus
 
     def _read_corpus(self, path):
         abstracts = []
         headlines = []
+        topics = []
         i = 0
         with open(path, encoding="utf-8") as f:
             for line in f:
-                if line == "\n":
-                    continue
-                if i % 2 == 0:
-                    headlines.append(line.strip())
-                else:
-                    abstracts.append(line.strip())
+                j = json.loads(line)
+                headlines.append(j["title"])
+                abstracts.append(j["abstract"])
+                topics.append(j["topics"])
                 i += 1
         corpus = []
+        topics_v = []
         for i in range(len(abstracts)):
             if len(headlines[i]) > 0 and len(abstracts[i]) > 0:
                 h_a_pair = []
                 h_a_pair.append(self._tokenize_word(headlines[i]))
                 h_a_pair.append(self._tokenize_word(abstracts[i]))
                 if len(h_a_pair) > 1:
+
+                    vectorized_topics = []
+                    for t in topics[i]:
+                        t = t.lower()
+                        if t not in self.context_vectorizer:
+                            self.context_vectorizer[len(self.context_vectorizer)] = t
+                        vectorized_topics.append(self.context_vectorizer[t])
+
+                    topics_v.append(vectorized_topics)
                     corpus.append(h_a_pair)
-        return corpus
+        return corpus, topics_v
 
     def _tokenize_word(self, sentence):
         result = []
@@ -186,14 +198,15 @@ class headline2abstractdataset(Dataset):
         return self.vectorizer.transform(self.corpus)
 
     def __getitem__(self, index):
-        len_s, len_t, source, target = self.data[index]
+        len_s, len_t, source, target, topics = self.data[index]
         source = torch.LongTensor(source)
-
+        topics = torch.LongTensor(topics)
         target = torch.LongTensor(target)
         if self.USE_CUDA:
             source = source.cuda()
             target = target.cuda()
-        return source, target, len_s
+            topics = topics.cuda()
+        return source, target, len_s, topics
 
     def __len__(self):
         return len(self.data)
