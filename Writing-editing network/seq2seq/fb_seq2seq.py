@@ -21,17 +21,20 @@ class FbSeq2seq(nn.Module):
 
         if topics is not None:
             context_embedding = self.context_encoder(topics)
-            print("Conext embedding dimension is", context_embedding.shape)
-        encoder_outputs, encoder_hidden = self.encoder_title(input_variable, input_lengths)
+        else:
+            context_embedding = None
+
+        encoder_outputs, encoder_hidden = self.encoder_title(input_variable, input_lengths, context_embedding=context_embedding)
         if prev_generated_seq is None:
             pg_encoder_states = None
             pg_encoder_hidden = None
         else:
-            pg_encoder_states, pg_encoder_hidden = self.encoder(prev_generated_seq)
+            pg_encoder_states, pg_encoder_hidden = self.encoder(prev_generated_seq, context_embedding=context_embedding)
         result = self.decoder(inputs=target_variable,
                               encoder_hidden=encoder_hidden,
                               encoder_outputs=encoder_outputs,
                               pg_encoder_states=pg_encoder_states,
                               function=self.decode_function,
-                              teacher_forcing_ratio=teacher_forcing_ratio)
+                              teacher_forcing_ratio=teacher_forcing_ratio,
+                              context_embedding=context_embedding)
         return result

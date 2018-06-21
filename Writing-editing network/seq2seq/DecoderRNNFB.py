@@ -63,11 +63,13 @@ class DecoderRNNFB(BaseRNN):
         self.out1 = nn.Linear(self.hidden_size, self.output_size)
         self.out2 = nn.Linear(self.hidden_size, self.output_size)
 
-    def forward_step(self, input_var, pg_encoder_states, hidden, encoder_outputs, function):
+    def forward_step(self, input_var, pg_encoder_states, hidden, encoder_outputs, context_embedding):
         batch_size = input_var.size(0)
         output_size = input_var.size(1)
 
         embedded = self.embedding(input_var)
+        if context_embedding is not None:
+            embedded = context_embedding + embedded
         embedded = self.input_dropout(embedded)
 
         attn = None
@@ -84,7 +86,7 @@ class DecoderRNNFB(BaseRNN):
         return outputs, output_states_attn, hidden, attn
 
     def forward(self, inputs=None, encoder_hidden=None, encoder_outputs=None,
-                pg_encoder_states=None, function=F.log_softmax, teacher_forcing_ratio=0):
+                pg_encoder_states=None, function=F.log_softmax, teacher_forcing_ratio=0, context_embedding=None):
         ret_dict = dict()
         ret_dict[DecoderRNNFB.KEY_ATTN_SCORE] = list()
 
@@ -100,7 +102,7 @@ class DecoderRNNFB(BaseRNN):
             decoder_input = inputs[:, :-1]
             decoder_outputs, decoder_output_states, decoder_hidden, attn = \
                 self.forward_step(decoder_input, pg_encoder_states,
-                                decoder_hidden, encoder_outputs, function=function)
+                                decoder_hidden, encoder_outputs, context_embedding)
         else:
             decoder_outputs = []
             decoder_output_states = []
@@ -127,7 +129,7 @@ class DecoderRNNFB(BaseRNN):
 
                 decoder_output, decoder_output_state, decoder_hidden, step_attn = \
                     self.forward_step(decoder_input, pg_encoder_states, decoder_hidden,
-                                      encoder_outputs, function=function)
+                                      encoder_outputs, context_embedding)
                 # # not allow decoder to output UNK
                 decoder_output[:, :, 3] = -float('inf')
 
