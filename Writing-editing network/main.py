@@ -29,7 +29,7 @@ class Config(object):
     relative_data_path = '/data/train.dat'
     relative_dev_path = '/data/dev.dat'
     relative_gen_path = '/data/fake%d.dat'
-    pretrained = ''
+    pretrained = None
     max_grad_norm = 10
     min_freq = 5
     num_exams = 3
@@ -73,7 +73,7 @@ print("number of training examples: %d" % len(abstracts))
 vocab_size = abstracts.vectorizer.vocabulary_size
 embedding = nn.Embedding(vocab_size, config.emsize, padding_idx=0)
 
-if args.pretrained:
+if config.pretrained:
     embedding = load_embeddings(embedding, abstracts.vectorizer.word2idx, config.pretrained, config.emsize)
 
 encoder_title = EncoderRNN(vocab_size, embedding, abstracts.head_len, config.emsize, input_dropout_p=config.dropout,
