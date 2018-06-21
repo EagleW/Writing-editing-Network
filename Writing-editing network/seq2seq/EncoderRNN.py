@@ -18,6 +18,9 @@ class EncoderRNN(BaseRNN):
 
     def forward(self, input_var, input_lengths=None):
 
+        if input_lengths is not None:
+            input_lengths = input_lengths.tolist()
+
         embedded = self.embedding(input_var)
         embedded = self.input_dropout(embedded)
         if self.variable_lengths:

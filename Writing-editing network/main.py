@@ -26,6 +26,7 @@ class Config(object):
     batch_size = 20
     dropout = 0
     bidirectional = True
+    dataparallel = False
     relative_data_path = '/data/train.dat'
     relative_dev_path = '/data/dev.dat'
     relative_gen_path = '/data/fake%d.dat'
@@ -87,6 +88,10 @@ model = FbSeq2seq(encoder_title, encoder, decoder)
 total_params = sum(x.size()[0] * x.size()[1] if len(x.size()) > 1 else x.size()[0] for x in model.parameters())
 print('Model total parameters:', total_params, flush=True)
 
+if config.dataparallel and torch.cuda.device_count() > 1:
+    print("Let's use", torch.cuda.device_count(), "GPUs!")
+    model = nn.DataParallel(model)
+
 criterion = nn.CrossEntropyLoss(ignore_index=0)
 if args.cuda:
     model = model.cuda()
@@ -143,7 +148,7 @@ def evaluate(validation_dataset, model, teacher_forcing_ratio):
         input_variables = source
         target_variables = target
         # train model
-        loss_list = train_batch(input_variables, input_lengths.tolist(),
+        loss_list = train_batch(input_variables, input_lengths,
                                 target_variables, model, teacher_forcing_ratio)
         num_examples = len(source)
         for i in range(config.num_exams):
@@ -169,7 +174,7 @@ def train_epoches(dataset, model, n_epochs, teacher_forcing_ratio):
             input_variables = source
             target_variables = target
             # train model
-            loss_list = train_batch(input_variables, input_lengths.tolist(),
+            loss_list = train_batch(input_variables, input_lengths,
                                target_variables, model, teacher_forcing_ratio)
             # Record average loss
             num_examples = len(source)
