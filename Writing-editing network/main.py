@@ -39,6 +39,7 @@ class Config(object):
     log_interval = 1000
     predict_right_after = 3
     patience = 5
+    use_topics = False
 
 cudnn.benchmark = True
 parser = argparse.ArgumentParser(description='seq2seq model')
@@ -128,6 +129,7 @@ def train_batch(input_variable, input_lengths, target_variable, topics, model,
     target_variable_reshaped = target_variable[:, 1:].contiguous().view(-1)
 
     for i in range(config.num_exams):
+        topics = topics if config.use_topics else None
         decoder_outputs, _, other = \
             model(input_variable, prev_generated_seq, input_lengths,
                    target_variable, teacher_forcing_ratio, topics)
@@ -148,12 +150,12 @@ def evaluate(validation_dataset, model, teacher_forcing_ratio):
     validation_loader = DataLoader(validation_dataset, config.batch_size)
     model.eval()
     epoch_loss_list = [0] * config.num_exams
-    for batch_idx, (source, target, input_lengths) in enumerate(validation_loader):
+    for batch_idx, (source, target, input_lengths, topics) in enumerate(validation_loader):
         input_variables = source
         target_variables = target
         # train model
         loss_list = train_batch(input_variables, input_lengths,
-                                target_variables, model, teacher_forcing_ratio)
+                                target_variables, topics, model, teacher_forcing_ratio)
         num_examples = len(source)
         for i in range(config.num_exams):
             epoch_loss_list[i] += loss_list[i] * num_examples
@@ -229,7 +231,7 @@ def predict(load=False, keep_going=False):
         model.load_state_dict(torch.load(args.save))
         print("model restored")
     predictor = Predictor(model, abstracts.vectorizer)
-    count = 0
+    count = 1
     while True:
         seq_str = input("Type in a source sequence:\n")
         seq = seq_str.strip().split(' ')
