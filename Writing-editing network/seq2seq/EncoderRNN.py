@@ -23,7 +23,7 @@ class EncoderRNN(BaseRNN):
 
         embedded = self.embedding(input_var)
         if context_embedding is not None:
-            embedded = context_embedding + embedded
+            embedded = context_embedding.unsqueeze(1).expand_as(embedded) + embedded
         embedded = self.input_dropout(embedded)
         if self.variable_lengths:
             embedded = nn.utils.rnn.pack_padded_sequence(embedded, input_lengths, batch_first=True)

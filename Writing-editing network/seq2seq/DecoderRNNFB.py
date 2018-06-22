@@ -69,7 +69,7 @@ class DecoderRNNFB(BaseRNN):
 
         embedded = self.embedding(input_var)
         if context_embedding is not None:
-            embedded = context_embedding + embedded
+            embedded = context_embedding.unsqueeze(1).expand_as(embedded) + embedded
         embedded = self.input_dropout(embedded)
 
         attn = None
