@@ -166,7 +166,8 @@ class headline2abstractdataset(Dataset):
                 j = json.loads(line)
                 headlines.append(j["title"])
                 abstracts.append(j["abstract"])
-                topics.append(j["topics"])
+                if "topics" in j:
+                    topics.append(j["topics"])
                 i += 1
         corpus = []
         topics_v = []
@@ -176,17 +177,17 @@ class headline2abstractdataset(Dataset):
                 h_a_pair.append(self._tokenize_word(headlines[i]))
                 h_a_pair.append(self._tokenize_word(abstracts[i]))
                 if len(h_a_pair) > 1:
-
-                    vectorized_topics = []
-                    for t in topics[i]:
-                        t = t.lower()
-                        if t not in self.context_vectorizer:
-                            self.context_vectorizer[t] = len(self.context_vectorizer)
-                        vectorized_topics.append(self.context_vectorizer[t])
-                    self.max_context_length = max(self.max_context_length, len(vectorized_topics))
-                    topics_v.append(vectorized_topics)
                     corpus.append(h_a_pair)
-        self.context_vectorizer['<unk>'] =  len(self.context_vectorizer)
+                    vectorized_topics = []
+                    if topics:
+                        for t in topics[i]:
+                            t = t.lower()
+                            if t not in self.context_vectorizer:
+                                self.context_vectorizer[t] = len(self.context_vectorizer)
+                            vectorized_topics.append(self.context_vectorizer[t])
+                        self.max_context_length = max(self.max_context_length, len(vectorized_topics))
+                    topics_v.append(vectorized_topics)
+        self.context_vectorizer['<unk>'] = len(self.context_vectorizer)
         return corpus, topics_v
 
     def _tokenize_word(self, sentence):
