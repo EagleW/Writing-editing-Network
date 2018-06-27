@@ -16,9 +16,14 @@ class EncoderRNN(BaseRNN):
         self.rnn = self.rnn_cell(hidden_size, hidden_size, n_layers,
                                  batch_first=True, bidirectional=bidirectional, dropout=dropout_p)
 
-    def forward(self, input_var, input_lengths=None):
+    def forward(self, input_var, input_lengths=None, context_embedding=None):
+
+        if input_lengths is not None:
+            input_lengths = input_lengths.tolist()
 
         embedded = self.embedding(input_var)
+        if context_embedding is not None:
+            embedded = context_embedding.unsqueeze(1).expand_as(embedded) + embedded
         embedded = self.input_dropout(embedded)
         if self.variable_lengths:
             embedded = nn.utils.rnn.pack_padded_sequence(embedded, input_lengths, batch_first=True)
