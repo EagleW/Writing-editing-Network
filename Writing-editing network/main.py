@@ -12,34 +12,10 @@ from seq2seq.DecoderRNNFB import DecoderRNNFB
 from seq2seq.ContextEncoder import ContextEncoder
 from predictor import Predictor
 from tensorboardX import SummaryWriter
+import configurations
 from pprint import pprint
 sys.path.insert(0,'..')
 from eval import Evaluate
-
-writer = SummaryWriter("runs/exp1", comment="lr")
-
-class Config(object):
-    cell = "GRU"
-    emsize = 512
-    context_dim = 128
-    nlayers = 1
-    lr = 0.001
-    epochs = 10
-    batch_size = 20
-    dropout = 0
-    bidirectional = True
-    dataparallel = False
-    relative_data_path = '/data/train.dat'
-    relative_dev_path = '/data/dev.dat'
-    relative_gen_path = '/data/fake%d.dat'
-    pretrained = None
-    max_grad_norm = 10
-    min_freq = 5
-    num_exams = 3
-    log_interval = 1000
-    predict_right_after = 3
-    patience = 5
-    use_topics = False
 
 cudnn.benchmark = True
 parser = argparse.ArgumentParser(description='seq2seq model')
@@ -47,11 +23,13 @@ parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
 parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
-parser.add_argument('--save', type=str,  default='params.pkl',
-                    help='path to save the final model')
 parser.add_argument('--mode', type=int,  default=0,
                     help='train(0)/predict_sentence(1)/predict_file(2) or evaluate(3)')
 args = parser.parse_args()
+config = configurations.get_conf(args.conf)
+writer = SummaryWriter("saved_runs/" + config.experiment_name)
+v = vars(args)
+v['save'] = config.experiment_name + '.pkl'
 
 # Set the random seed manually for reproducibility.
 torch.manual_seed(args.seed)
@@ -60,9 +38,6 @@ if torch.cuda.is_available():
         print("WARNING: You have a CUDA device, so you should probably run with --cuda")
     else:
         torch.cuda.manual_seed(args.seed)
-
-config = Config()
-#config = ConfigTest()
 
 cwd = os.getcwd()
 vectorizer = Vectorizer(min_frequency=config.min_freq)
