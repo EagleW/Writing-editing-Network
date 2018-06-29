@@ -25,6 +25,8 @@ parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
 parser.add_argument('--mode', type=int,  default=0,
                     help='train(0)/predict_sentence(1)/predict_file(2) or evaluate(3)')
+parser.add_argument('--conf', type=str,
+                    help="configuration to load for the training")
 args = parser.parse_args()
 config = configurations.get_conf(args.conf)
 writer = SummaryWriter("saved_runs/" + config.experiment_name)
