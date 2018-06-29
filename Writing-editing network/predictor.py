@@ -41,7 +41,7 @@ class Predictor(object):
         if torch.cuda.is_available():
             input_variable = input_variable.cuda()
 
-        input_lengths = [len(src_seq)]
+        input_lengths = torch.LongTensor([len(src_seq)])
 
         prev_generated_seq = None
         outputs = []

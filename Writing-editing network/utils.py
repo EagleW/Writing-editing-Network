@@ -2,23 +2,32 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from collections import Counter
+from gensim.models import KeyedVectors
 import re
+import json
 
-#provide embeddings for text
-def load_embeddings(path, word2idx, embedding_dim=256):
-    embeddings = np.zeros((len(word2idx), embedding_dim))
-    embd = []
-    with open(path, "r") as f:
-        lines = f.readlines()
-    for line in lines[1:]:
-        values = line.strip().split(' ')
-        word = values[0]
-        index = word2idx.get(word)
-        if index:
-            vector = np.array(values[1:], dtype='float32')
-            embeddings[index] = vector
-    #embeddings[1] = np.zeros(embedding_dim)
-    return torch.from_numpy(embeddings).float()
+#provide pretrained embeddings for text
+def load_embeddings(pytorch_embedding, word2idx, filename, embedding_size):
+    print("Copying pretrained word embeddings from ", filename, flush=True)
+    en_model = KeyedVectors.load_word2vec_format(filename)
+    """ Fetching all of the words in the vocabulary. """
+    pretrained_words = set()
+    for word in en_model.vocab:
+        pretrained_words.add(word)
+
+    arr = [0] * len(word2idx)
+    for word in word2idx:
+        index = word2idx[word]
+        if word in pretrained_words:
+            arr[index] = en_model[word]
+        else:
+            arr[index] = np.random.uniform(-1.0, 1.0, embedding_size)
+
+    """ Creating a numpy dictionary for the index -> embedding mapping """
+    arr = np.array(arr)
+    """ Add the word embeddings to the empty PyTorch Embedding object """
+    pytorch_embedding.weight.data.copy_(torch.from_numpy(arr))
+    return pytorch_embedding
 
 #Transforms a Corpus into lists of word indices.
 class Vectorizer:
@@ -108,22 +117,27 @@ class headline2abstractdataset(Dataset):
         self.head_len = 0
         self.abs_len = 0
         self.max_len = max_len
-        self.corpus = self._read_corpus(path)
+        self.max_context_length = -1
+        self.context_vectorizer = {}
+        self.corpus, self.topics_corpus = self._read_corpus(path)
         self.vectorizer = vectorizer
         self.data = self._vectorize_corpus()
         self._initalcorpus()
         self.USE_CUDA = USE_CUDA
 
-    def pad_sentence_vector(self, vector, maxlen):
-        padding = maxlen - len(vector)
-        vector.extend([0] * padding)
+    def pad_sentence_vector(self, vector, maxlen, pad_value=0):
+        org_length = len(vector)
+        padding = maxlen - org_length
+        vector.extend([pad_value] * padding)
+        vector.append(org_length)
         return vector
 
     def _initalcorpus(self):
         old = []
-        for i in self.data:
+        for i, j in zip(self.data, self.topics_corpus):
             source = i[0]
             target = i[1]
+            vectorized_topics = j
             if len(source) > self.head_len:
                 self.head_len = len(source)
             if len(target) <= self.max_len:
@@ -133,28 +147,30 @@ class headline2abstractdataset(Dataset):
                 target = target[:self.max_len-1]
                 target.append(1)#word2idx['<EOS>'] = 1
                 self.abs_len = len(target)
-            old.append((source[1:-1], target))
+            old.append((source[1:-1], target, vectorized_topics))
         old.sort(key = lambda x: len(x[0]), reverse = True)
         corpus = []
-        for source, target in old:
-            team = [len(source), len(target), self.pad_sentence_vector(source, self.head_len), self.pad_sentence_vector(target, self.abs_len)]
+        for source, target, vectorized_topics in old:
+            vectorized_topics = self.pad_sentence_vector(vectorized_topics, self.max_context_length, pad_value=self.context_vectorizer['<unk>'])
+            team = [len(source), len(target), self.pad_sentence_vector(source, self.head_len), self.pad_sentence_vector(target, self.abs_len), vectorized_topics]
             corpus.append(team)
         self.data = corpus
 
     def _read_corpus(self, path):
-        with open(path, "r") as f:
-            lines = f.readlines()
-        f.close()
         abstracts = []
         headlines = []
+        topics = []
         i = 0
-        for line in lines:
-            if i % 3 == 0:
-                headlines.append(line)
-            elif i % 3 == 1:
-                abstracts.append(line)
-            i += 1
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                j = json.loads(line)
+                headlines.append(j["title"])
+                abstracts.append(j["abstract"])
+                if "topics" in j:
+                    topics.append(j["topics"])
+                i += 1
         corpus = []
+        topics_v = []
         for i in range(len(abstracts)):
             if len(headlines[i]) > 0 and len(abstracts[i]) > 0:
                 h_a_pair = []
@@ -162,7 +178,17 @@ class headline2abstractdataset(Dataset):
                 h_a_pair.append(self._tokenize_word(abstracts[i]))
                 if len(h_a_pair) > 1:
                     corpus.append(h_a_pair)
-        return corpus
+                    vectorized_topics = []
+                    if topics:
+                        for t in topics[i]:
+                            t = t.lower()
+                            if t not in self.context_vectorizer:
+                                self.context_vectorizer[t] = len(self.context_vectorizer)
+                            vectorized_topics.append(self.context_vectorizer[t])
+                        self.max_context_length = max(self.max_context_length, len(vectorized_topics))
+                    topics_v.append(vectorized_topics)
+        self.context_vectorizer['<unk>'] = len(self.context_vectorizer)
+        return corpus, topics_v
 
     def _tokenize_word(self, sentence):
         result = []
@@ -178,14 +204,15 @@ class headline2abstractdataset(Dataset):
         return self.vectorizer.transform(self.corpus)
 
     def __getitem__(self, index):
-        len_s, len_t, source, target = self.data[index]
+        len_s, len_t, source, target, topics = self.data[index]
         source = torch.LongTensor(source)
-
+        topics = torch.LongTensor(topics)
         target = torch.LongTensor(target)
         if self.USE_CUDA:
             source = source.cuda()
             target = target.cuda()
-        return source, target, len_s
+            topics = topics.cuda()
+        return source, target, len_s, topics
 
     def __len__(self):
         return len(self.data)
