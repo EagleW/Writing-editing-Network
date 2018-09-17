@@ -5,6 +5,9 @@
 [[Poster]](https://eaglew.github.io/files/Paper_abstract_generation.pdf)[[Fake Handbook*]](https://eaglew.github.io/files/handbook.pdf) *Fake abstracts for the main conference (ACL 2018)
 
 Accpeted by 56th Annual Meeting of the Association for Computational Linguistics (ACL 2018)
+<p align="center">
+  <img src="https://eaglew.github.io/images/writing-editing.png?raw=true" alt="Photo" style="width: 500px;"/>
+</p>
 
 Table of Contents
 =================
