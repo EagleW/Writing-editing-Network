@@ -1,6 +1,6 @@
 # Writing-editing Network: Paper Abstract Writing through Editing Mechanism
 
-[Paper Abstract Writing through Editing Mechanism](http://aclweb.org/anthology/P18-2042.pdf)
+[Paper Abstract Writing through Editing Mechanism](http://aclanthology.org/P18-2042.pdf)
 
 [[Poster]](https://eaglew.github.io/files/Paper_abstract_generation.pdf)[[Fake Handbook*]](https://eaglew.github.io/files/handbook.pdf) *Fake abstracts for the main conference (ACL 2018)
 
@@ -67,6 +67,6 @@ python main.py --cuda --mode 1
   publisher = 	"Association for Computational Linguistics",
   pages = 	"260--265",
   location = 	"Melbourne, Australia",
-  url = 	"http://aclweb.org/anthology/P18-2042"
+  url = 	"http://aclanthology.org/P18-2042"
 }
 ```
